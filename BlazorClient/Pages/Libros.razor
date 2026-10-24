@@ -1,0 +1,146 @@
+﻿@page "/libros"
+@inject HttpClient Http
+
+<PageTitle>Libros</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h3><i class="bi bi-book-fill text-success me-2"></i>Catálogo de Libros</h3>
+    <button class="btn btn-outline-secondary btn-sm" @onclick="CargarLibros">
+        <i class="bi bi-arrow-clockwise me-1"></i>Refrescar
+    </button>
+</div>
+
+<div class="card mb-4 p-3 shadow-sm border-0">
+    <h5 class="card-title text-success"><i class="bi bi-plus-circle me-2"></i>Agregar Nuevo Libro</h5>
+    <div class="row g-2">
+        <div class="col-md-5">
+            <input class="form-control" placeholder="Título de la obra" @bind="nuevoTitulo" />
+        </div>
+        <div class="col-md-4">
+            <input class="form-control" placeholder="Autor" @bind="nuevoAutor" />
+        </div>
+        <div class="col-md-2">
+            <input class="form-control" type="number" placeholder="Stock" @bind="nuevoStock" min="1" />
+        </div>
+        <div class="col-md-1">
+            <button class="btn btn-success w-80" @onclick="GuardarLibro">Guardar</button>
+        </div>
+    </div>
+</div>
+
+@if (!string.IsNullOrEmpty(mensaje))
+{
+    <div class="alert alert-info alert-dismissible fade show" role="alert">
+        @mensaje
+        <button type="button" class="btn-close" @onclick="() => mensaje = null"></button>
+    </div>
+}
+
+@if (libros == null)
+{
+    <div class="text-center my-4">
+        <div class="spinner-border text-success" role="status"></div>
+        <p class="mt-2 text-muted">Cargando catálogo de libros...</p>
+    </div>
+}
+else if (!libros.Any())
+{
+    <div class="alert alert-warning">No hay libros registrados en el inventario.</div>
+}
+else
+{
+    <div class="table-responsive bg-white rounded shadow-sm">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-dark">
+                <tr>
+                    <th style="width: 80px;">ID</th>
+                    <th>Título</th>
+                    <th>Autor</th>
+                    <th style="width: 140px;">Stock</th>
+                    <th style="width: 120px;" class="text-center">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var libro in libros)
+                {
+                    <tr>
+                        <td class="fw-bold">@libro.IdLibro</td>
+                        <td class="fw-semibold">@libro.Titulo</td>
+                        <td>@libro.Autor</td>
+                        <td>
+                            <span class="badge @(libro.Stock > 0 ? "bg-success" : "bg-danger") fs-6">
+                                @libro.Stock disponible(s)
+                            </span>
+                        </td>
+                        <td class="text-center">
+                            <button class="btn btn-outline-danger btn-sm" @onclick="() => EliminarLibro(libro.IdLibro)">
+                                <i class="bi bi-trash-fill"></i> Borrar
+                            </button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    private List<LibroGet>? libros;
+    private string nuevoTitulo = "";
+    private string nuevoAutor = "";
+    private int nuevoStock = 1;
+    private string? mensaje;
+
+    protected override async Task OnInitializedAsync() => await CargarLibros();
+
+    private async Task CargarLibros()
+    {
+        try
+        {
+            libros = await Http.GetFromJsonAsync<List<LibroGet>>("api/libros");
+        }
+        catch (Exception ex)
+        {
+            mensaje = $"Error al obtener libros: {ex.Message}";
+        }
+    }
+
+    private async Task GuardarLibro()
+    {
+        if (string.IsNullOrWhiteSpace(nuevoTitulo) || string.IsNullOrWhiteSpace(nuevoAutor))
+        {
+            mensaje = "El título y autor son obligatorios.";
+            return;
+        }
+
+        var dto = new LibroSet(nuevoTitulo, nuevoAutor, nuevoStock);
+        var response = await Http.PostAsJsonAsync("api/libros", dto);
+
+        if (response.IsSuccessStatusCode)
+        {
+            nuevoTitulo = "";
+            nuevoAutor = "";
+            nuevoStock = 1;
+            mensaje = "Libro registrado exitosamente en el catálogo.";
+            await CargarLibros();
+        }
+        else
+        {
+            mensaje = "Error al registrar el libro.";
+        }
+    }
+
+    private async Task EliminarLibro(int id)
+    {
+        var response = await Http.DeleteAsync($"api/libros/{id}");
+        if (response.IsSuccessStatusCode)
+        {
+            mensaje = $"Libro #{id} eliminado correctamente.";
+            await CargarLibros();
+        }
+        else
+        {
+            mensaje = "No se puede eliminar un libro que tiene préstamos vinculados.";
+        }
+    }
+}

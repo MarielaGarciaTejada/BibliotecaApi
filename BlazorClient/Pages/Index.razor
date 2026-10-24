@@ -1,0 +1,51 @@
+@page "/"
+
+<PageTitle>Inicio - Sistema Biblioteca</PageTitle>
+
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card shadow-sm border-0 p-4 bg-primary text-white rounded-3">
+            <h1 class="display-6 fw-bold">Gestión de Préstamos de Libros</h1>
+            <p class="lead mb-0">Sistema Web conectado a BibliotecaApi mediante Azure SQL, Dapper y arquitectura de servicios.</p>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-md-6 col-lg-3">
+        <div class="card h-100 shadow-sm border-0 border-top border-4 border-info">
+            <div class="card-body">
+                <h5 class="card-title text-info"><i class="bi bi-people-fill me-2"></i>Estudiantes</h5>
+                <p class="card-text text-muted">Consulta, agrega y gestiona los estudiantes registrados con matrícula y correo.</p>
+                <a href="estudiantes" class="btn btn-outline-info btn-sm">Gestionar Estudiantes</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 col-lg-3">
+        <div class="card h-100 shadow-sm border-0 border-top border-4 border-success">
+            <div class="card-body">
+                <h5 class="card-title text-success"><i class="bi bi-book-fill me-2"></i>Libros</h5>
+                <p class="card-text text-muted">Control de catálogo, autores y stock disponible en tiempo real.</p>
+                <a href="libros" class="btn btn-outline-success btn-sm">Ver Catálogo</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 col-lg-3">
+        <div class="card h-100 shadow-sm border-0 border-top border-4 border-warning">
+            <div class="card-body">
+                <h5 class="card-title text-warning"><i class="bi bi-arrow-right-square-fill me-2"></i>Préstamos</h5>
+                <p class="card-text text-muted">Genera préstamos automáticos descontando el stock del libro seleccionado.</p>
+                <a href="prestamos" class="btn btn-outline-warning btn-sm">Nuevo Préstamo</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 col-lg-3">
+        <div class="card h-100 shadow-sm border-0 border-top border-4 border-danger">
+            <div class="card-body">
+                <h5 class="card-title text-danger"><i class="bi bi-arrow-left-square-fill me-2"></i>Devoluciones</h5>
+                <p class="card-text text-muted">Registra devoluciones de libros, restaura inventario y añade observaciones.</p>
+                <a href="devoluciones" class="btn btn-outline-danger btn-sm">Ver Devoluciones</a>
+            </div>
+        </div>
+    </div>
+</div>
