@@ -9,7 +9,7 @@ builder.RootComponents.Add<HeadOutlet>("head::after");
 builder.Services.AddScoped(sp => new HttpClient
 {
     // Local
-   // BaseAddress = new Uri("https://localhost:7093/")
+   //BaseAddress = new Uri("https://localhost:7093/")
    // App service azure
     BaseAddress = new Uri("https://web-api-biblioteca-fhakc4h4erh6ajcj.westus3-01.azurewebsites.net/")
 
