@@ -2,7 +2,7 @@ using BibliotecaApi.Services;
 using Scalar.AspNetCore;
 using Serilog;
 
-// Configuracion inicial de Serilog
+// Configuracion de Serilog
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
     .CreateBootstrapLogger();
@@ -19,6 +19,26 @@ try
         .Enrich.FromLogContext()
         .WriteTo.Console());
 
+    // CORS
+    const string BlazorPolicy = "BlazorClientPolicy";
+    builder.Services.AddCors(options =>
+    {
+        options.AddPolicy(BlazorPolicy, policy =>
+        {
+            policy.WithOrigins(
+                    "https://localhost:7093",
+                    "http://localhost:5047",
+                    "https://localhost:7290",
+                    "http://localhost:5163",
+                    "https://blazor-biblioteca-app-fdcsfpgvcpg9hhdr.westus3-01.azurewebsites.net"
+                )
+                .AllowAnyHeader()
+                .AllowAnyMethod();
+
+        });
+    });
+
+
     // Add services to the container.
 
     builder.Services.AddControllers();
@@ -34,19 +54,19 @@ try
 
     app.UseSerilogRequestLogging();
 
-    if (app.Environment.IsDevelopment())
+    app.MapOpenApi();
+
+    app.MapScalarApiReference(options =>
     {
-        app.MapOpenApi();
-        app.MapScalarApiReference(options =>
-        {
-            options.WithTitle("API Biblioteca - Préstamos")
-                   .WithTheme(ScalarTheme.Moon);
-        });
-    }
+        options.WithTitle("API Biblioteca - Préstamos")
+            .WithTheme(ScalarTheme.Moon);
+    });
 
     app.MapGet("/", () => Results.Redirect("/scalar/v1")).ExcludeFromDescription();
 
     app.UseHttpsRedirection();
+
+    app.UseCors(BlazorPolicy);
 
     app.UseAuthorization();
 
