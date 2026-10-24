@@ -1,0 +1,142 @@
+﻿@page "/estudiantes"
+@inject HttpClient Http
+
+<PageTitle>Estudiantes</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h3><i class="bi bi-people-fill text-primary me-2"></i>Gestión de Estudiantes</h3>
+    <button class="btn btn-outline-secondary btn-sm" @onclick="CargarEstudiantes">
+        <i class="bi bi-arrow-clockwise me-1"></i>Refrescar
+    </button>
+</div>
+
+<div class="card mb-4 p-3 shadow-sm border-0">
+    <h5 class="card-title text-primary"><i class="bi bi-person-plus-fill me-2"></i>Registrar Estudiante</h5>
+    <div class="row g-2">
+        <div class="col-md-4">
+            <input class="form-control" placeholder="Nombre completo" @bind="nuevoNombre" />
+        </div>
+        <div class="col-md-4">
+            <input class="form-control" placeholder="Matrícula (ej: EST-2026-001)" @bind="nuevaMatricula" />
+        </div>
+        <div class="col-md-3">
+            <input class="form-control" type="email" placeholder="Email" @bind="nuevoEmail" />
+        </div>
+        <div class="col-md-1">
+            <button class="btn btn-primary w-80" @onclick="GuardarEstudiante">Guardar</button>
+        </div>
+    </div>
+</div>
+
+@if (!string.IsNullOrEmpty(mensaje))
+{
+    <div class="alert alert-info alert-dismissible fade show" role="alert">
+        @mensaje
+        <button type="button" class="btn-close" @onclick="() => mensaje = null"></button>
+    </div>
+}
+
+@if (estudiantes == null)
+{
+    <div class="text-center my-4">
+        <div class="spinner-border text-primary" role="status"></div>
+        <p class="mt-2 text-muted">Cargando lista de estudiantes...</p>
+    </div>
+}
+else if (!estudiantes.Any())
+{
+    <div class="alert alert-warning">No hay estudiantes registrados. Agrega uno arriba.</div>
+}
+else
+{
+    <div class="table-responsive bg-white rounded shadow-sm">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-dark">
+                <tr>
+                    <th style="width: 80px;">ID</th>
+                    <th>Nombre</th>
+                    <th>Matrícula</th>
+                    <th>Email</th>
+                    <th style="width: 120px;" class="text-center">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var item in estudiantes)
+                {
+                    <tr>
+                        <td class="fw-bold">@item.IdEstudiante</td>
+                        <td>@item.Nombre</td>
+                        <td><span class="badge bg-secondary">@item.Matricula</span></td>
+                        <td>@item.Email</td>
+                        <td class="text-center">
+                            <button class="btn btn-outline-danger btn-sm" @onclick="() => EliminarEstudiante(item.IdEstudiante)">
+                                <i class="bi bi-trash-fill"></i> Borrar
+                            </button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    private List<EstudianteGet>? estudiantes;
+    private string nuevoNombre = "";
+    private string nuevaMatricula = "";
+    private string nuevoEmail = "";
+    private string? mensaje;
+
+    protected override async Task OnInitializedAsync() => await CargarEstudiantes();
+
+    private async Task CargarEstudiantes()
+    {
+        try
+        {
+            estudiantes = await Http.GetFromJsonAsync<List<EstudianteGet>>("api/estudiantes");
+        }
+        catch (Exception ex)
+        {
+            mensaje = $"Error al conectar con la API: {ex.Message}";
+        }
+    }
+
+    private async Task GuardarEstudiante()
+    {
+        if (string.IsNullOrWhiteSpace(nuevoNombre) || string.IsNullOrWhiteSpace(nuevaMatricula))
+        {
+            mensaje = "El nombre y la matrícula son obligatorios.";
+            return;
+        }
+
+        var dto = new EstudianteSet(nuevoNombre, nuevaMatricula, nuevoEmail);
+        var response = await Http.PostAsJsonAsync("api/estudiantes", dto);
+
+        if (response.IsSuccessStatusCode)
+        {
+            nuevoNombre = "";
+            nuevaMatricula = "";
+            nuevoEmail = "";
+            mensaje = "Estudiante registrado correctamente.";
+            await CargarEstudiantes();
+        }
+        else
+        {
+            mensaje = "Error al guardar el estudiante. Verifica que la matrícula no esté duplicada.";
+        }
+    }
+
+    private async Task EliminarEstudiante(int id)
+    {
+        var response = await Http.DeleteAsync($"api/estudiantes/{id}");
+        if (response.IsSuccessStatusCode)
+        {
+            mensaje = $"Estudiante #{id} eliminado correctamente.";
+            await CargarEstudiantes();
+        }
+        else
+        {
+            mensaje = "No se pudo eliminar el estudiante (es posible que tenga préstamos asociados).";
+        }
+    }
+}
