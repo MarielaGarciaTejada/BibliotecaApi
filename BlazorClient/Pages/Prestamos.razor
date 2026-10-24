@@ -1,0 +1,267 @@
+﻿@page "/prestamos"
+@inject HttpClient Http
+
+<PageTitle>Préstamos</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h3><i class="bi bi-arrow-right-square-fill text-warning me-2"></i>Gestión de Préstamos</h3>
+    <button class="btn btn-outline-secondary btn-sm" @onclick="CargarDatos">
+        <i class="bi bi-arrow-clockwise me-1"></i>Refrescar
+    </button>
+</div>
+
+<div class="card mb-4 p-3 shadow-sm border-0">
+    <h5 class="card-title text-warning mb-3">
+        <i class="bi bi-plus-square me-2"></i>Registrar Préstamo de Libro
+    </h5>
+
+    <div class="row g-3">
+        <!-- BUSCADOR INTERACTIVO DE ESTUDIANTE -->
+        <div class="col-md-4 position-relative">
+            <label class="form-label small fw-bold">Estudiante</label>
+
+            @if (estudianteSeleccionado != null)
+            {
+                <!-- Vista cuando ya se seleccionó un estudiante -->
+                <div class="input-group">
+                    <span class="form-control bg-light border-success text-success fw-semibold">
+                        <i class="bi bi-person-check-fill me-1"></i> @estudianteSeleccionado.Nombre (@estudianteSeleccionado.Matricula)
+                    </span>
+                    <button class="btn btn-outline-danger" type="button" @onclick="LimpiarEstudianteSeleccionado" title="Cambiar de estudiante">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                </div>
+            }
+            else
+            {
+                <!-- Campo de texto para buscar por nombre o matrícula -->
+                <div class="input-group">
+                    <span class="input-group-text bg-white"><i class="bi bi-search text-muted"></i></span>
+                    <input type="text"
+                           class="form-control"
+                           placeholder="Escribe el nombre o matrícula..."
+                           @bind="filtroEstudiante"
+                           @bind:event="oninput"
+                           @onfocus="() => mostrarSugerencias = true" />
+                </div>
+
+                <!-- Lista flotante con resultados coincidentes -->
+                @if (mostrarSugerencias && !string.IsNullOrWhiteSpace(filtroEstudiante))
+                {
+                    <div class="list-group position-absolute w-100 shadow mt-1" style="z-index: 1050; max-height: 220px; overflow-y: auto;">
+                        @if (estudiantesSugeridos.Any())
+                        {
+                            @foreach (var est in estudiantesSugeridos)
+                            {
+                                <button type="button"
+                                        class="list-group-item list-group-item-action d-flex justify-content-between align-items-center"
+                                        @onclick="() => SeleccionarEstudiante(est)">
+                                    <div>
+                                        <div class="fw-bold">@est.Nombre</div>
+                                        <small class="text-muted">@est.Email</small>
+                                    </div>
+                                    <span class="badge bg-primary rounded-pill">@est.Matricula</span>
+                                </button>
+                            }
+                        }
+                        else
+                        {
+                            <div class="list-group-item text-muted small p-2">
+                                <i class="bi bi-exclamation-circle me-1"></i> No se encontraron estudiantes con "<strong>@filtroEstudiante</strong>"
+                            </div>
+                        }
+                    </div>
+                }
+            }
+        </div>
+
+        <!-- SELECTOR DE LIBRO CON STOCK DISPONIBLE -->
+        <div class="col-md-4">
+            <label class="form-label small fw-bold">Libro (Stock disponible)</label>
+            <select class="form-select" @bind="seleccionLibroId">
+                <option value="0">Seleccione un libro...</option>
+                @if (libros != null)
+                {
+                    @foreach (var l in libros)
+                    {
+                        <option value="@l.IdLibro" disabled="@(l.Stock <= 0)">
+                            @l.Titulo (@(l.Stock > 0 ? $"Stock: {l.Stock}" : "Agotado"))
+                        </option>
+                    }
+                }
+            </select>
+        </div>
+
+        <!-- FECHA DE DEVOLUCIÓN ESPERADA -->
+        <div class="col-md-3">
+            <label class="form-label small fw-bold">Fecha Devolución Esperada</label>
+            <input class="form-control" type="date" @bind="fechaDevolucionEsperada" />
+        </div>
+
+        <!-- BOTÓN PRESTAR -->
+        <div class="col-md-1 d-flex align-items-end">
+            <button class="btn btn-warning w-80 fw-bold" @onclick="GuardarPrestamo">Prestar</button>
+        </div>
+    </div>
+</div>
+
+@if (!string.IsNullOrEmpty(mensaje))
+{
+    <div class="alert alert-info alert-dismissible fade show" role="alert">
+        @mensaje
+        <button type="button" class="btn-close" @onclick="() => mensaje = null"></button>
+    </div>
+}
+
+@if (prestamos == null)
+{
+    <div class="text-center my-4">
+        <div class="spinner-border text-warning" role="status"></div>
+        <p class="mt-2 text-muted">Cargando lista de préstamos...</p>
+    </div>
+}
+else if (!prestamos.Any())
+{
+    <div class="alert alert-warning">No hay préstamos registrados actualmente.</div>
+}
+else
+{
+    <div class="table-responsive bg-white rounded shadow-sm">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-dark">
+                <tr>
+                    <th style="width: 100px;">ID Préstamo</th>
+                    <th>Estudiante</th>
+                    <th>Libro</th>
+                    <th>Fecha Préstamo</th>
+                    <th>Devolución Esperada</th>
+                    <th style="width: 120px;" class="text-center">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var p in prestamos)
+                {
+                    var estudiante = estudiantes?.FirstOrDefault(e => e.IdEstudiante == p.IdEstudiante);
+                    var libro = libros?.FirstOrDefault(l => l.IdLibro == p.IdLibro);
+
+                    <tr>
+                        <td class="fw-bold">#@p.IdPrestamo</td>
+                        <td>@(estudiante != null ? $"{estudiante.Nombre} ({estudiante.Matricula})" : $"Estudiante #{p.IdEstudiante}")</td>
+                        <td>@(libro != null ? libro.Titulo : $"Libro #{p.IdLibro}")</td>
+                        <td>@p.FechaPrestamo.ToString("dd/MM/yyyy HH:mm")</td>
+                        <td>
+                            <span class="badge @(p.FechaDevolucionEsperada < DateTime.Now ? "bg-danger" : "bg-primary")">
+                                @p.FechaDevolucionEsperada.ToString("dd/MM/yyyy")
+                            </span>
+                        </td>
+                        <td class="text-center">
+                            <button class="btn btn-outline-danger btn-sm" @onclick="() => EliminarPrestamo(p.IdPrestamo)">
+                                <i class="bi bi-trash-fill"></i> Borrar
+                            </button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    private List<PrestamoGet>? prestamos;
+    private List<EstudianteGet>? estudiantes;
+    private List<LibroGet>? libros;
+
+    // Variables de búsqueda y selección de estudiante
+    private string filtroEstudiante = "";
+    private bool mostrarSugerencias = false;
+    private EstudianteGet? estudianteSeleccionado;
+    private int seleccionEstudianteId => estudianteSeleccionado?.IdEstudiante ?? 0;
+
+    // Variables de formulario
+    private int seleccionLibroId;
+    private DateTime fechaDevolucionEsperada = DateTime.Today.AddDays(7);
+    private string? mensaje;
+
+    // Filtro reactivo en memoria: busca por nombre o matrícula
+    private IEnumerable<EstudianteGet> estudiantesSugeridos =>
+        estudiantes == null || string.IsNullOrWhiteSpace(filtroEstudiante)
+            ? Enumerable.Empty<EstudianteGet>()
+            : estudiantes.Where(e =>
+                e.Nombre.Contains(filtroEstudiante, StringComparison.OrdinalIgnoreCase) ||
+                e.Matricula.Contains(filtroEstudiante, StringComparison.OrdinalIgnoreCase)
+              ).Take(5);
+
+    protected override async Task OnInitializedAsync() => await CargarDatos();
+
+    private async Task CargarDatos()
+    {
+        try
+        {
+            prestamos = await Http.GetFromJsonAsync<List<PrestamoGet>>("api/prestamos");
+            estudiantes = await Http.GetFromJsonAsync<List<EstudianteGet>>("api/estudiantes");
+            libros = await Http.GetFromJsonAsync<List<LibroGet>>("api/libros");
+        }
+        catch (Exception ex)
+        {
+            mensaje = $"Error cargando datos: {ex.Message}";
+        }
+    }
+
+    private void SeleccionarEstudiante(EstudianteGet est)
+    {
+        estudianteSeleccionado = est;
+        filtroEstudiante = "";
+        mostrarSugerencias = false;
+    }
+
+    private void LimpiarEstudianteSeleccionado()
+    {
+        estudianteSeleccionado = null;
+        filtroEstudiante = "";
+        mostrarSugerencias = false;
+    }
+
+    private async Task GuardarPrestamo()
+    {
+        if (seleccionEstudianteId == 0)
+        {
+            mensaje = "Debes buscar y seleccionar un estudiante antes de registrar el préstamo.";
+            return;
+        }
+
+        if (seleccionLibroId == 0)
+        {
+            mensaje = "Por favor selecciona un libro disponible.";
+            return;
+        }
+
+        var dto = new PrestamoSet(seleccionEstudianteId, seleccionLibroId, fechaDevolucionEsperada);
+        var response = await Http.PostAsJsonAsync("api/prestamos", dto);
+
+        if (response.IsSuccessStatusCode)
+        {
+            mensaje = "Préstamo registrado exitosamente y stock descontado.";
+            LimpiarEstudianteSeleccionado();
+            seleccionLibroId = 0;
+            await CargarDatos();
+        }
+        else
+        {
+            mensaje = "Error al procesar el préstamo. Verifica disponibilidad de stock.";
+        }
+    }
+
+    private async Task EliminarPrestamo(int id)
+    {
+        var response = await Http.DeleteAsync($"api/prestamos/{id}");
+        if (response.IsSuccessStatusCode)
+        {
+            mensaje = $"Préstamo #{id} eliminado correctamente.";
+            await CargarDatos();
+        }
+        else
+        {
+            mensaje = "No se pudo eliminar el préstamo.";
+        }
+    }
+}
