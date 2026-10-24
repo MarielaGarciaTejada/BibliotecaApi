@@ -1,0 +1,174 @@
+﻿@page "/devoluciones"
+@inject HttpClient Http
+
+<PageTitle>Devoluciones</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+
+    <h3><i class="bi bi-arrow-left-square-fill text-danger me-2"></i>Gestión de Devoluciones</h3>
+
+    <button class="btn btn-outline-secondary btn-sm" @onclick="CargarDatos">
+        <i class="bi bi-arrow-clockwise me-1"></i>Refrescar
+    </button>
+
+</div>
+
+<div class="card mb-4 p-3 shadow-sm border-0">
+
+    <h5 class="card-title text-danger"><i class="bi bi-check-circle me-2"></i>Registrar Devolución de Libro</h5>
+
+    <div class="row g-2">
+        <div class="col-md-4">
+
+            <label class="form-label small fw-bold">Préstamo a devolver</label>
+            <select class="form-select" @bind="seleccionPrestamoId">
+                <option value="0">Seleccione un ID de Préstamo...</option>
+                @if (prestamosPendientes != null)
+                {
+                    @foreach (var prestamosP in prestamosPendientes)
+                    {
+                        var lib = libros?.FirstOrDefault(l => l.IdLibro == prestamosP.IdLibro);
+                        var est = estudiantes?.FirstOrDefault(e => e.IdEstudiante == prestamosP.IdEstudiante);
+                        <option value="@prestamosP.IdPrestamo">
+                            Préstamo #@prestamosP.IdPrestamo - @(lib?.Titulo ?? $"Libro {prestamosP.IdLibro}") (@(est?.Nombre ?? $"Estudiante {prestamosP.IdEstudiante}"))
+                        </option>
+                    }
+                }
+            </select>
+
+        </div>
+
+        <div class="col-md-6">
+            <label class="form-label small fw-bold">Observaciones</label>
+            <input class="form-control" placeholder="Estado del libro o notas (ej. Excelente estado)" @bind="observaciones" />
+        </div>
+
+        <div class="col-md-2 d-flex align-items-end">
+            <button class="btn btn-danger w-100 fw-bold" @onclick="GuardarDevolucion">Devolver</button>
+        </div>
+    </div>
+</div>
+
+@if (!string.IsNullOrEmpty(mensaje))
+{
+    <div class="alert alert-info alert-dismissible fade show" role="alert">
+        @mensaje
+        <button type="button" class="btn-close" @onclick="() => mensaje = null"></button>
+    </div>
+}
+
+@if (devoluciones == null)
+{
+    <div class="text-center my-4">
+        <div class="spinner-border text-danger" role="status"></div>
+        <p class="mt-2 text-muted">Cargando devoluciones...</p>
+    </div>
+}
+else if (!devoluciones.Any())
+{
+    <div class="alert alert-warning">No hay devoluciones registradas hasta el momento.</div>
+}
+else
+{
+    <div class="table-responsive bg-white rounded shadow-sm">
+
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-dark">
+                <tr>
+                    <th style="width: 90px;">ID Dev.</th>
+                    <th style="width: 110px;">ID Préstamo</th>
+                    <th>Fecha de Devolución</th>
+                    <th>Observaciones</th>
+                    <th style="width: 120px;" class="text-center">Acciones</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                @foreach (var devolucion in devoluciones)
+                {
+                    <tr>
+                        <td class="fw-bold">#@devolucion.IdDevolucion</td>
+                        <td><span class="badge bg-secondary">Préstamo #@devolucion.IdPrestamo</span></td>
+                        <td>@devolucion.FechaDevolucion.ToString("dd/MM/yyyy HH:mm")</td>
+                        <td>@(string.IsNullOrWhiteSpace(devolucion.Observaciones) ? "Sin observaciones" : devolucion.Observaciones)</td>
+
+                        <td class="text-center">
+                            <button class="btn btn-outline-danger btn-sm" @onclick="() => EliminarDevolucion(devolucion.IdDevolucion)">
+                                <i class="bi bi-trash-fill"></i> Borrar
+                            </button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    private List<DevolucionGet>? devoluciones;
+    private List<PrestamoGet>? prestamos;
+    private List<EstudianteGet>? estudiantes;
+    private List<LibroGet>? libros;
+
+    private IEnumerable<PrestamoGet>? prestamosPendientes =>
+        prestamos?.Where(p => devoluciones == null || !devoluciones.Any(d => d.IdPrestamo == p.IdPrestamo));
+
+    private int seleccionPrestamoId;
+    private string observaciones = "";
+    private string? mensaje;
+
+    protected override async Task OnInitializedAsync() => await CargarDatos();
+
+    private async Task CargarDatos()
+    {
+        try
+        {
+            devoluciones = await Http.GetFromJsonAsync<List<DevolucionGet>>("api/devoluciones");
+            prestamos = await Http.GetFromJsonAsync<List<PrestamoGet>>("api/prestamos");
+            estudiantes = await Http.GetFromJsonAsync<List<EstudianteGet>>("api/estudiantes");
+            libros = await Http.GetFromJsonAsync<List<LibroGet>>("api/libros");
+        }
+        catch (Exception ex)
+        {
+            mensaje = $"Error cargando devoluciones: {ex.Message}";
+        }
+    }
+
+    private async Task GuardarDevolucion()
+    {
+        if (seleccionPrestamoId == 0)
+        {
+            mensaje = "Por favor selecciona un préstamo a devolver.";
+            return;
+        }
+
+        var dto = new DevolucionSet(seleccionPrestamoId, observaciones);
+        var response = await Http.PostAsJsonAsync("api/devoluciones", dto);
+
+        if (response.IsSuccessStatusCode)
+        {
+            mensaje = "Devolución registrada exitosamente. El stock del libro ha sido restaurado (+1).";
+            seleccionPrestamoId = 0;
+            observaciones = "";
+            await CargarDatos();
+        }
+        else
+        {
+            mensaje = "Error al procesar la devolución. Es posible que el préstamo ya haya sido devuelto previamente.";
+        }
+    }
+
+    private async Task EliminarDevolucion(int id)
+    {
+        var response = await Http.DeleteAsync($"api/devoluciones/{id}");
+        if (response.IsSuccessStatusCode)
+        {
+            mensaje = $"Devolución #{id} eliminada correctamente.";
+            await CargarDatos();
+        }
+        else
+        {
+            mensaje = "No se pudo eliminar la devolución.";
+        }
+    }
+}
