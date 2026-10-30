@@ -119,9 +119,3 @@ La API habilita CORS únicamente para los orígenes del cliente Blazor (local y 
 - **Cliente Blazor:** Azure App Service (Windows) independiente, publicando el contenido de `wwwroot` tras `dotnet publish`.
 
 La cadena de conexión de producción se configura como **Application Setting** en el App Service de la API (`ConnectionStrings__AzureSQLConnection`), nunca en el código fuente.
-
-## 🔐 Seguridad
-
-- Ninguna credencial (cadenas de conexión, claves) debe comitearse al repositorio.
-- En local: `dotnet user-secrets`.
-- En Azure: *Configuration → Application settings* del App Service.
